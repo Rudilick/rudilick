@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import { Home, Search, BookOpen, User, PenLine } from "lucide-react";
 import logo from "./assets/rudiilick_logo.png";
-
 import HomeScreen from "./components/HomeScreen";
 import WriteFormSection from "./components/WriteFormSection_PLAY_TO_WRITE";
 import LibrarySection from "./components/LibrarySection";
@@ -33,9 +32,14 @@ const text = {
 };
 
 function App() {
+  console.log("Force update at " + new Date());  // ✅ Git이 감지할 강제 변경
+
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-gray-900 text-white font-sans">
+        <h1 className="text-center text-sm text-gray-500">
+          🎯 이건 변경 감지를 위한 테스트 메시지입니다.
+        </h1>
         <Header />
         <div className="flex-grow overflow-auto pt-[72px] pb-[72px] px-4">
           <Routes>
