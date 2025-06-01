@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 export default function WriteFormSection() {
   const [bpm, setBpm] = useState(120);
@@ -6,21 +6,87 @@ export default function WriteFormSection() {
   const [genre, setGenre] = useState("");
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const audioChunks = useRef([]);
 
-  const handleRecord = () => {
-    alert("Recording with settings:\n" +
-      "BPM: " + bpm + "\n" +
-      "Meter: " + meter + "\n" +
-      "Genre: " + genre + "\n" +
-      "Slow mode: " + slowMode + "\n" +
-      "MR type: " + mrType
-    );
+  const beatCountMap = {
+    "4/4": 4,
+    "3/4": 3,
+    "6/8": 2,
+    "12/8": 4,
+    "5/4": 5,
+    "7/8": 4,
+    "9/8": 3,
+    "2/4": 2,
+    "7/4": 4,
+    "9/4": 3
+  };
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const playAudio = (src) => {
+    return new Promise((resolve) => {
+      const audio = new Audio(src);
+      audio.onended = resolve;
+      audio.play();
+    });
+  };
+
+  const handleRecord = async () => {
+    const count = beatCountMap[meter] || 4;
+    const beatDurationMs = (60 / bpm) * 1000;
+
+    // 1. 예비박 숫자 재생
+    for (let i = 1; i <= count; i++) {
+      await playAudio(`/audio/count_audio/${["one","two","three","four","five","six","seven"][i-1]}.mp3`);
+      await sleep(beatDurationMs);
+    }
+
+    // 2. 메트로놈 클릭 반복 재생 + 녹음 시작
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunks.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        audioChunks.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(audioChunks.current, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append('file', blob, 'recorded.wav');
+
+        try {
+          const res = await fetch('https://rudilick-backend.onrender.com/transcribe-beat/', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          alert("전사 결과:\n" + JSON.stringify(data, null, 2));
+        } catch (err) {
+          alert("❌ 업로드 실패: " + err.message);
+        }
+      };
+
+      mediaRecorderRef.current.start();
+      setTimeout(() => {
+        mediaRecorderRef.current.stop();
+      }, 5000);
+
+      // 클릭음 재생 5초간 (녹음과 병행)
+      const clickAudio = new Audio("/audio/click.mp3");
+      const interval = setInterval(() => clickAudio.play(), beatDurationMs);
+      setTimeout(() => clearInterval(interval), 5000);
+
+    } catch (err) {
+      alert("❌ 마이크 접근 실패: " + err.message);
+    }
   };
 
   return (
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
-
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
         <div className="flex items-center gap-4">
@@ -35,7 +101,6 @@ export default function WriteFormSection() {
           <span className="w-12 text-center font-mono">{bpm}</span>
         </div>
       </div>
-
       <div className="mb-4">
         <label className="block font-medium mb-1">Time Signature</label>
         <select
@@ -43,13 +108,11 @@ export default function WriteFormSection() {
           onChange={(e) => setMeter(e.target.value)}
           className="w-full border rounded px-3 py-2 text-black"
         >
-          <option>4/4</option>
-          <option>3/4</option>
-          <option>6/8</option>
-          <option>12/8</option>
+          {Object.keys(beatCountMap).map((m) => (
+            <option key={m}>{m}</option>
+          ))}
         </select>
       </div>
-
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
         <select
@@ -65,7 +128,6 @@ export default function WriteFormSection() {
           <option value="ballad">Ballad</option>
         </select>
       </div>
-
       <div className="mb-4">
         <label className="inline-flex items-center">
           <input
@@ -77,46 +139,24 @@ export default function WriteFormSection() {
           Slow down for recording
         </label>
       </div>
-
       <div className="mb-6">
         <label className="block font-medium mb-2">MR Type</label>
         <div className="space-y-2">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="mrType"
-              value="metronome"
-              checked={mrType === "metronome"}
-              onChange={(e) => setMrType(e.target.value)}
-              className="mr-2"
-            />
-            Metronome
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="mrType"
-              value="backing"
-              checked={mrType === "backing"}
-              onChange={(e) => setMrType(e.target.value)}
-              className="mr-2"
-            />
-            Backing track
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="mrType"
-              value="upload"
-              checked={mrType === "upload"}
-              onChange={(e) => setMrType(e.target.value)}
-              className="mr-2"
-            />
-            Audio upload
-          </label>
+          {['metronome','backing','upload'].map((type) => (
+            <label className="flex items-center" key={type}>
+              <input
+                type="radio"
+                name="mrType"
+                value={type}
+                checked={mrType === type}
+                onChange={(e) => setMrType(e.target.value)}
+                className="mr-2"
+              />
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </label>
+          ))}
         </div>
       </div>
-
       <button
         onClick={handleRecord}
         className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold"
