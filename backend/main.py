@@ -31,11 +31,11 @@ credentials = service_account.Credentials.from_service_account_info(credentials_
 client = storage.Client(credentials=credentials)
 bucket = client.bucket(GCS_BUCKET_NAME)
 
-# 요청 데이터 형식
+# 모델 정의
 class FileRequest(BaseModel):
     filename: str
 
-# 파일 업로드
+# 업로드
 @app.post("/upload-wav/")
 async def upload_wav(file: UploadFile = File(...)):
     print("📥 파일 업로드 요청 수신됨")
@@ -44,22 +44,22 @@ async def upload_wav(file: UploadFile = File(...)):
     blob = bucket.blob(blob_name)
     contents = await file.read()
     blob.upload_from_string(contents, content_type="audio/wav")
-    public_url = f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_name}"
     return {
         "message": "파일이 GCS에 업로드되었습니다.",
         "filename": blob_name,
-        "url": public_url
+        "url": f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_name}"
     }
 
-# 전사 처리
+# 전사
 @app.post("/transcribe-beat/")
 async def transcribe_beat(request: FileRequest):
     try:
         blob = bucket.blob(request.filename)
+        local_path = f"temp/{request.filename}"
         os.makedirs("temp", exist_ok=True)
-        local_path = os.path.join("temp", request.filename)
         blob.download_to_filename(local_path)
 
+        # 전사 함수
         def transcribe_with_beat_quantization(wav_path: str, divisions: List[int] = [3, 4, 6]) -> dict:
             y, sr = librosa.load(wav_path, sr=None)
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
@@ -87,7 +87,6 @@ async def transcribe_beat(request: FileRequest):
                 "notes": result
             }
 
-        result = transcribe_with_beat_quantization(local_path)
-        return result
+        return transcribe_with_beat_quantization(local_path)
     except Exception as e:
         return {"error": str(e)}
