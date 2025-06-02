@@ -7,6 +7,7 @@ export default function WriteFormSection() {
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
   const [recording, setRecording] = useState(false);
+
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const clickIntervalRef = useRef(null);
@@ -19,7 +20,6 @@ export default function WriteFormSection() {
   };
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
   const playAudio = (src) => {
     return new Promise((resolve, reject) => {
       const audio = new Audio(src);
@@ -61,6 +61,7 @@ export default function WriteFormSection() {
 
       mediaRecorderRef.current = new MediaRecorder(permission);
       audioChunks.current = [];
+
       mediaRecorderRef.current.ondataavailable = (e) => {
         audioChunks.current.push(e.data);
       };
@@ -77,7 +78,7 @@ export default function WriteFormSection() {
           });
 
           const uploadData = await uploadRes.json();
-          console.log("✅ uploadData:", uploadData); // ✅ 여기 삽입됨
+          console.log("✅ uploadData:", uploadData);
 
           if (!uploadData?.filename) {
             throw new Error("업로드 응답에 filename 없음");
@@ -85,12 +86,13 @@ export default function WriteFormSection() {
 
           const transcribeRes = await fetch('https://rudilick-backend.onrender.com/transcribe-beat/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // ✅ headers 제거!
             body: JSON.stringify({ filename: uploadData.filename })
           });
 
           const result = await transcribeRes.json();
           alert("🎵 전사 결과:\n" + JSON.stringify(result, null, 2));
+
         } catch (err) {
           alert("❌ 업로드 또는 전사 실패: " + err.message);
         }
