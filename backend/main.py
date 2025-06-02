@@ -1,10 +1,12 @@
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import storage
 from google.oauth2 import service_account
+from pydantic import BaseModel
 from datetime import datetime
 import os
 import json
+import librosa
 from typing import List
 
 app = FastAPI()
@@ -21,12 +23,19 @@ app.add_middleware(
 # GCS 설정
 GCS_BUCKET_NAME = "rudilick_audio"
 GCS_KEY_PATH = "gcs_key.json"
+
 with open(GCS_KEY_PATH, "r") as f:
     credentials_info = json.load(f)
+
 credentials = service_account.Credentials.from_service_account_info(credentials_info)
 client = storage.Client(credentials=credentials)
 bucket = client.bucket(GCS_BUCKET_NAME)
 
+# 요청 데이터 형식
+class FileRequest(BaseModel):
+    filename: str
+
+# 파일 업로드
 @app.post("/upload-wav/")
 async def upload_wav(file: UploadFile = File(...)):
     print("📥 파일 업로드 요청 수신됨")
@@ -42,20 +51,15 @@ async def upload_wav(file: UploadFile = File(...)):
         "url": public_url
     }
 
+# 전사 처리
 @app.post("/transcribe-beat/")
-async def transcribe_beat(request: Request):
+async def transcribe_beat(request: FileRequest):
     try:
-        body = await request.json()
-        filename = body.get("filename")
-        if not filename:
-            return {"error": "filename 없음"}
-
-        blob = bucket.blob(filename)
+        blob = bucket.blob(request.filename)
         os.makedirs("temp", exist_ok=True)
-        local_path = os.path.join("temp", filename)
+        local_path = os.path.join("temp", request.filename)
         blob.download_to_filename(local_path)
 
-        import librosa
         def transcribe_with_beat_quantization(wav_path: str, divisions: List[int] = [3, 4, 6]) -> dict:
             y, sr = librosa.load(wav_path, sr=None)
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
