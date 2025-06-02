@@ -20,6 +20,7 @@ export default function WriteFormSection() {
   };
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   const playAudio = (src) => {
     return new Promise((resolve, reject) => {
       const audio = new Audio(src);
@@ -50,7 +51,7 @@ export default function WriteFormSection() {
 
   const handleRecord = async () => {
     try {
-      const permission = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const count = beatCountMap[meter] || 4;
       const beatDurationMs = (60 / bpm) * 1000;
 
@@ -59,7 +60,7 @@ export default function WriteFormSection() {
         await sleep(beatDurationMs);
       }
 
-      mediaRecorderRef.current = new MediaRecorder(permission);
+      mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunks.current = [];
 
       mediaRecorderRef.current.ondataavailable = (e) => {
@@ -80,15 +81,21 @@ export default function WriteFormSection() {
           const uploadData = await uploadRes.json();
           console.log("✅ uploadData:", uploadData);
 
-          if (!uploadData?.filename) {
-            throw new Error("업로드 응답에 filename 없음");
+          const filename = uploadData?.filename;
+          if (!filename) {
+            throw new Error("업로드 응답에서 filename이 없습니다.");
           }
 
           const transcribeRes = await fetch('https://rudilick-backend.onrender.com/transcribe-beat/', {
             method: 'POST',
-            // ✅ headers 제거!
-            body: JSON.stringify({ filename: uploadData.filename })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename }),
           });
+
+          if (!transcribeRes.ok) {
+            const errText = await transcribeRes.text();
+            throw new Error(`전사 요청 실패: ${transcribeRes.status} - ${errText}`);
+          }
 
           const result = await transcribeRes.json();
           alert("🎵 전사 결과:\n" + JSON.stringify(result, null, 2));
@@ -119,6 +126,7 @@ export default function WriteFormSection() {
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
 
+      {/* BPM */}
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
         <div className="flex items-center gap-4">
@@ -127,6 +135,7 @@ export default function WriteFormSection() {
         </div>
       </div>
 
+      {/* Time Signature */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Time Signature</label>
         <select value={meter} onChange={(e) => setMeter(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
@@ -134,6 +143,7 @@ export default function WriteFormSection() {
         </select>
       </div>
 
+      {/* Genre */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
         <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
@@ -146,6 +156,7 @@ export default function WriteFormSection() {
         </select>
       </div>
 
+      {/* Slow mode */}
       <div className="mb-4">
         <label className="inline-flex items-center">
           <input type="checkbox" checked={slowMode} onChange={(e) => setSlowMode(e.target.checked)} className="mr-2" />
@@ -153,6 +164,7 @@ export default function WriteFormSection() {
         </label>
       </div>
 
+      {/* MR Type */}
       <div className="mb-6">
         <label className="block font-medium mb-2">MR Type</label>
         <div className="space-y-2">
@@ -165,6 +177,7 @@ export default function WriteFormSection() {
         </div>
       </div>
 
+      {/* Buttons */}
       <div className="flex gap-4">
         {!recording && (
           <button onClick={handleRecord} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold">
