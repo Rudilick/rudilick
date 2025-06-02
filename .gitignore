@@ -22,6 +22,7 @@
 
 # production
 /build
+echo "backend/*.json" >> .gitignore
 
 # misc
 .DS_Store
