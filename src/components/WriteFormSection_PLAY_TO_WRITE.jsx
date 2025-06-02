@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+
 export default function WriteFormSection() {
   const [bpm, setBpm] = useState(120);
   const [meter, setMeter] = useState("4/4");
@@ -6,16 +7,19 @@ export default function WriteFormSection() {
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
   const [recording, setRecording] = useState(false);
+
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const clickIntervalRef = useRef(null);
   const timeoutRef = useRef(null);
+
   const beatCountMap = {
     "4/4": 4, "3/4": 3, "6/8": 2, "12/8": 4,
     "5/4": 5, "7/8": 4, "9/8": 3, "2/4": 2,
     "7/4": 4, "9/4": 3
   };
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const playAudio = (src) => {
     return new Promise((resolve, reject) => {
       const audio = new Audio(src);
@@ -24,6 +28,7 @@ export default function WriteFormSection() {
       audio.play();
     });
   };
+
   const stopRecording = async () => {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
@@ -32,57 +37,7 @@ export default function WriteFormSection() {
       setRecording(false);
     }
   };
-  const handleRecord = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const count = beatCountMap[meter] || 4;
-      const beatDurationMs = (60 / bpm) * 1000;
 
-      for (let i = 1; i <= count; i++) {
-        await playAudio(`/audio/count_audio/${["one", "two", "three", "four", "five", "six", "seven"][i - 1]}.mp3`);
-        await sleep(beatDurationMs);
-      }
-
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunks.current = [];
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        audioChunks.current.push(e.data);
-      };
-      mediaRecorderRef.current.onstop = async () => {
-        const blob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        const formData = new FormData();
-        formData.append('file', blob, 'recorded.wav');
-        try {
-          const uploadRes = await fetch('https://rudilick-backend.onrender.com/upload-wav/', {
-            method: 'POST',
-            body: formData,
-          });
-          const uploadData = await uploadRes.json();
-          const transcribeRes = await fetch('https://rudilick-backend.onrender.com/transcribe-beat/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: uploadData.filename })
-          });
-          const result = await transcribeRes.json();
-          alert("🎵 전사 결과:\n" + JSON.stringify(result, null, 2));
-        } catch (err) {
-          alert("❌ 업로드/전사 실패: " + err.message);
-        }
-      };
-      mediaRecorderRef.current.start();
-      setRecording(true);
-      const clickAudio = new Audio("/audio/click.mp3");
-      clickIntervalRef.current = setInterval(() => {
-        clickAudio.currentTime = 0;
-        clickAudio.play();
-      }, beatDurationMs);
-      timeoutRef.current = setTimeout(() => {
-        stopRecording();
-      }, 60000); // 최대 60초
-    } catch (err) {
-      alert("❌ 마이크 접근 실패: " + err.message);
-    }
-  };
   const cancelRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
@@ -92,9 +47,82 @@ export default function WriteFormSection() {
     audioChunks.current = [];
     setRecording(false);
   };
+
+  const handleRecord = async () => {
+    try {
+      const permission = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const count = beatCountMap[meter] || 4;
+      const beatDurationMs = (60 / bpm) * 1000;
+
+      // 예비박 출력
+      for (let i = 1; i <= count; i++) {
+        await playAudio(`/audio/count_audio/${["one", "two", "three", "four", "five", "six", "seven"][i - 1]}.mp3`);
+        await sleep(beatDurationMs);
+      }
+
+      // 녹음 시작
+      mediaRecorderRef.current = new MediaRecorder(permission);
+      audioChunks.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        audioChunks.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(audioChunks.current, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append('file', blob, 'recorded.wav');
+
+        try {
+          const uploadRes = await fetch('https://rudilick-backend.onrender.com/upload-wav/', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const uploadData = await uploadRes.json();
+          if (!uploadData?.filename) {
+            throw new Error("업로드 응답에 filename 없음");
+          }
+
+          const transcribeRes = await fetch('https://rudilick-backend.onrender.com/transcribe-beat/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: uploadData.filename })
+          });
+
+          const result = await transcribeRes.json();
+          alert("🎵 전사 결과:\n" + JSON.stringify(result, null, 2));
+
+        } catch (err) {
+          alert("❌ 업로드 또는 전사 실패: " + err.message);
+        }
+      };
+
+      mediaRecorderRef.current.start();
+      setRecording(true);
+
+      // 클릭 사운드 반복 재생
+      const clickAudio = new Audio("/audio/click.mp3");
+      clickIntervalRef.current = setInterval(() => {
+        clickAudio.currentTime = 0;
+        clickAudio.play();
+      }, beatDurationMs);
+
+      timeoutRef.current = setTimeout(() => {
+        stopRecording();
+      }, 60000);
+
+    } catch (err) {
+      alert("❌ 마이크 접근 실패: " + err.message);
+    }
+  };
+
   return (
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
+
+      {/* BPM 설정 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
         <div className="flex items-center gap-4">
@@ -102,12 +130,16 @@ export default function WriteFormSection() {
           <span className="w-12 text-center font-mono">{bpm}</span>
         </div>
       </div>
+
+      {/* 박자표 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Time Signature</label>
         <select value={meter} onChange={(e) => setMeter(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
           {Object.keys(beatCountMap).map((m) => <option key={m}>{m}</option>)}
         </select>
       </div>
+
+      {/* 장르 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
         <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
@@ -119,12 +151,16 @@ export default function WriteFormSection() {
           <option value="ballad">Ballad</option>
         </select>
       </div>
+
+      {/* 슬로우 체크 */}
       <div className="mb-4">
         <label className="inline-flex items-center">
           <input type="checkbox" checked={slowMode} onChange={(e) => setSlowMode(e.target.checked)} className="mr-2" />
           Slow down for recording
         </label>
       </div>
+
+      {/* MR 선택 */}
       <div className="mb-6">
         <label className="block font-medium mb-2">MR Type</label>
         <div className="space-y-2">
@@ -136,6 +172,8 @@ export default function WriteFormSection() {
           ))}
         </div>
       </div>
+
+      {/* 버튼 */}
       <div className="flex gap-4">
         {!recording && (
           <button onClick={handleRecord} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold">
