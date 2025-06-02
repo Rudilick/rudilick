@@ -20,6 +20,7 @@ export default function WriteFormSection() {
   };
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   const playAudio = (src) => {
     return new Promise((resolve, reject) => {
       const audio = new Audio(src);
@@ -50,19 +51,17 @@ export default function WriteFormSection() {
 
   const handleRecord = async () => {
     try {
-      const permission = await navigator.mediaDevices.getUserMedia({ audio: true });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const count = beatCountMap[meter] || 4;
       const beatDurationMs = (60 / bpm) * 1000;
 
-      // 예비박 출력
+      // 예비박 재생
       for (let i = 1; i <= count; i++) {
         await playAudio(`/audio/count_audio/${["one", "two", "three", "four", "five", "six", "seven"][i - 1]}.mp3`);
         await sleep(beatDurationMs);
       }
 
-      // 녹음 시작
-      mediaRecorderRef.current = new MediaRecorder(permission);
+      mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunks.current = [];
 
       mediaRecorderRef.current.ondataavailable = (e) => {
@@ -93,7 +92,6 @@ export default function WriteFormSection() {
 
           const result = await transcribeRes.json();
           alert("🎵 전사 결과:\n" + JSON.stringify(result, null, 2));
-
         } catch (err) {
           alert("❌ 업로드 또는 전사 실패: " + err.message);
         }
@@ -102,7 +100,6 @@ export default function WriteFormSection() {
       mediaRecorderRef.current.start();
       setRecording(true);
 
-      // 클릭 사운드 반복 재생
       const clickAudio = new Audio("/audio/click.mp3");
       clickIntervalRef.current = setInterval(() => {
         clickAudio.currentTime = 0;
@@ -111,8 +108,7 @@ export default function WriteFormSection() {
 
       timeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 60000);
-
+      }, 60000); // 최대 60초
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
@@ -122,7 +118,6 @@ export default function WriteFormSection() {
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
 
-      {/* BPM 설정 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
         <div className="flex items-center gap-4">
@@ -131,7 +126,6 @@ export default function WriteFormSection() {
         </div>
       </div>
 
-      {/* 박자표 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Time Signature</label>
         <select value={meter} onChange={(e) => setMeter(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
@@ -139,7 +133,6 @@ export default function WriteFormSection() {
         </select>
       </div>
 
-      {/* 장르 */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
         <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full border rounded px-3 py-2 text-black">
@@ -152,7 +145,6 @@ export default function WriteFormSection() {
         </select>
       </div>
 
-      {/* 슬로우 체크 */}
       <div className="mb-4">
         <label className="inline-flex items-center">
           <input type="checkbox" checked={slowMode} onChange={(e) => setSlowMode(e.target.checked)} className="mr-2" />
@@ -160,7 +152,6 @@ export default function WriteFormSection() {
         </label>
       </div>
 
-      {/* MR 선택 */}
       <div className="mb-6">
         <label className="block font-medium mb-2">MR Type</label>
         <div className="space-y-2">
@@ -173,7 +164,6 @@ export default function WriteFormSection() {
         </div>
       </div>
 
-      {/* 버튼 */}
       <div className="flex gap-4">
         {!recording && (
           <button onClick={handleRecord} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold">
