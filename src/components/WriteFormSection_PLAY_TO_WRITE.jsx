@@ -7,7 +7,6 @@ export default function WriteFormSection() {
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
   const [recording, setRecording] = useState(false);
-
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const clickIntervalRef = useRef(null);
@@ -51,19 +50,17 @@ export default function WriteFormSection() {
 
   const handleRecord = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const permission = await navigator.mediaDevices.getUserMedia({ audio: true });
       const count = beatCountMap[meter] || 4;
       const beatDurationMs = (60 / bpm) * 1000;
 
-      // 예비박 재생
       for (let i = 1; i <= count; i++) {
         await playAudio(`/audio/count_audio/${["one", "two", "three", "four", "five", "six", "seven"][i - 1]}.mp3`);
         await sleep(beatDurationMs);
       }
 
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(permission);
       audioChunks.current = [];
-
       mediaRecorderRef.current.ondataavailable = (e) => {
         audioChunks.current.push(e.data);
       };
@@ -80,6 +77,8 @@ export default function WriteFormSection() {
           });
 
           const uploadData = await uploadRes.json();
+          console.log("✅ uploadData:", uploadData); // ✅ 여기 삽입됨
+
           if (!uploadData?.filename) {
             throw new Error("업로드 응답에 filename 없음");
           }
@@ -108,7 +107,7 @@ export default function WriteFormSection() {
 
       timeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 60000); // 최대 60초
+      }, 60000);
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
