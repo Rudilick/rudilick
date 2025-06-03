@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+google-cloud-storage
+python-multipart
+librosa==0.10.1
+scipy==1.11.4
