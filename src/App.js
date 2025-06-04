@@ -9,7 +9,7 @@ import {
 import { Home, Search, BookOpen, User, PenLine } from "lucide-react";
 import logo from "./assets/rudiilick_logo.png";
 import HomeScreen from "./components/HomeScreen";
-import WriteFormSection from "./components/WriteFormSection_PLAY_TO_WRITE";
+import WriteFormSection from "./components/WriteFormSection";
 import LibrarySection from "./components/LibrarySection";
 import AccountSection from "./components/AccountSection_shared_tracking";
 

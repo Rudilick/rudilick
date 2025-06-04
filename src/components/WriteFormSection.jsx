@@ -7,12 +7,28 @@ export default function WriteFormSection() {
   const [genre, setGenre] = useState("");
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
+  const [recording, setRecording] = useState(false);
 
   const recorderRef = useRef(null);
 
   const triggerRecording = () => {
     if (recorderRef.current) {
       recorderRef.current.startRecording();
+      setRecording(true);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stopRecording();
+      setRecording(false);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.cancelRecording();
+      setRecording(false);
     }
   };
 
@@ -23,28 +39,51 @@ export default function WriteFormSection() {
       {/* BPM */}
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
-        <input type="range" min="40" max="220" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} className="w-full" />
+        <input
+          type="range"
+          min="40"
+          max="220"
+          value={bpm}
+          onChange={(e) => setBpm(Number(e.target.value))}
+          className="w-full"
+        />
         <p className="text-center mt-1">{bpm}</p>
       </div>
 
       {/* Meter */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Meter</label>
-        <select value={meter} onChange={(e) => setMeter(e.target.value)} className="w-full text-black px-3 py-2 rounded">
-          {["4/4", "3/4", "6/8", "12/8", "5/4", "7/8"].map(m => <option key={m}>{m}</option>)}
+        <select
+          value={meter}
+          onChange={(e) => setMeter(e.target.value)}
+          className="w-full text-black px-3 py-2 rounded"
+        >
+          {["4/4", "3/4", "6/8", "12/8", "5/4", "7/8"].map(m => (
+            <option key={m}>{m}</option>
+          ))}
         </select>
       </div>
 
       {/* Genre */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
-        <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full text-black px-3 py-2 rounded" />
+        <input
+          type="text"
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          className="w-full text-black px-3 py-2 rounded"
+        />
       </div>
 
       {/* Slow Mode */}
       <div className="mb-4">
         <label className="inline-flex items-center">
-          <input type="checkbox" checked={slowMode} onChange={(e) => setSlowMode(e.target.checked)} className="mr-2" />
+          <input
+            type="checkbox"
+            checked={slowMode}
+            onChange={(e) => setSlowMode(e.target.checked)}
+            className="mr-2"
+          />
           Slow down for recording
         </label>
       </div>
@@ -52,18 +91,49 @@ export default function WriteFormSection() {
       {/* MR Type */}
       <div className="mb-4">
         <label className="block font-medium mb-1">MR Type</label>
-        {['metronome', 'backing', 'upload'].map(type => (
+        {["metronome", "backing", "upload"].map(type => (
           <label key={type} className="block">
-            <input type="radio" name="mrType" value={type} checked={mrType === type} onChange={(e) => setMrType(e.target.value)} className="mr-2" />
+            <input
+              type="radio"
+              name="mrType"
+              value={type}
+              checked={mrType === type}
+              onChange={(e) => setMrType(e.target.value)}
+              className="mr-2"
+            />
             {type}
           </label>
         ))}
       </div>
 
-      <button onClick={triggerRecording} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold">
-        PLAY TO WRITE
-      </button>
+      {/* Buttons */}
+      {!recording ? (
+        <div className="mt-6">
+          <button
+            onClick={triggerRecording}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl font-semibold"
+          >
+            PLAY TO WRITE
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-4 mt-6">
+          <button
+            onClick={stopRecording}
+            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl font-semibold"
+          >
+            FINISH
+          </button>
+          <button
+            onClick={cancelRecording}
+            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-xl font-semibold"
+          >
+            CANCEL
+          </button>
+        </div>
+      )}
 
+      {/* 녹음기 연결 */}
       <AudioRecorderTile ref={recorderRef} bpm={bpm} meter={meter} />
     </div>
   );
