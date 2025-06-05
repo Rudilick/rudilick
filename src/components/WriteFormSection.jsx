@@ -71,7 +71,7 @@ export default function WriteFormSection() {
           onChange={(e) => setGenre(e.target.value)}
           className="w-full text-black px-3 py-2 rounded"
         >
-          <option value="">장르를 선택하세요</option>
+          <option value="">select jenre</option>
           {[
             "Rock", "Pop", "Funk", "Jazz", "Blues", "Hip-Hop", "R&B", "Soul", "Gospel",
             "EDM", "House", "Techno", "Afrobeat", "Reggae", "Samba", "Bossa Nova", "Latin",
