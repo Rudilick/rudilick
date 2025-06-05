@@ -1,58 +1,13 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from google.cloud import storage
-from google.oauth2 import service_account
-from pydantic import BaseModel
-from datetime import datetime
-import os
-import json
-import librosa
-from typing import List
-
-app = FastAPI()
-
-# CORS 설정
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://www.rudilick.com", "https://rudilick.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# GCS 설정
-GCS_BUCKET_NAME = "rudilick_audio"
-GCS_KEY_PATH = "gcs_key.json"
-
-with open(GCS_KEY_PATH, "r") as f:
-    credentials_info = json.load(f)
-
-credentials = service_account.Credentials.from_service_account_info(credentials_info)
-client = storage.Client(credentials=credentials)
-bucket = client.bucket(GCS_BUCKET_NAME)
-
-# 모델 정의
-class FileRequest(BaseModel):
+class TranscriptionRequest(BaseModel):
     filename: str
+    bpm: int
+    meter: str
+    genre: str
+    mrType: str
+    slowMode: bool
 
-# 업로드
-@app.post("/upload-wav/")
-async def upload_wav(file: UploadFile = File(...)):
-    print("📥 파일 업로드 요청 수신됨")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    blob_name = f"audio_{timestamp}.wav"
-    blob = bucket.blob(blob_name)
-    contents = await file.read()
-    blob.upload_from_string(contents, content_type="audio/wav")
-    return {
-        "message": "파일이 GCS에 업로드되었습니다.",
-        "filename": blob_name,
-        "url": f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_name}"
-    }
-
-# 전사
 @app.post("/transcribe-beat/")
-async def transcribe_beat(request: FileRequest):
+async def transcribe_beat(request: TranscriptionRequest):
     try:
         blob = bucket.blob(request.filename)
         local_path = f"temp/{request.filename}"
@@ -84,7 +39,12 @@ async def transcribe_beat(request: FileRequest):
             return {
                 "tempo": round(float(tempo), 2),
                 "beats": len(beat_times),
-                "notes": result
+                "notes": result,
+                "bpm": request.bpm,
+                "meter": request.meter,
+                "genre": request.genre,
+                "mrType": request.mrType,
+                "slowMode": request.slowMode
             }
 
         return transcribe_with_beat_quantization(local_path)

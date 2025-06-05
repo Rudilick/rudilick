@@ -12,7 +12,8 @@ export default function WriteFormSection() {
 
   const triggerRecording = () => {
     if (recorderRef.current) {
-      recorderRef.current.startRecording();
+      const settings = { bpm, meter, genre, mrType, slowMode };
+      recorderRef.current.startRecording(settings);
       setRecording(true);
     }
   };
@@ -34,7 +35,6 @@ export default function WriteFormSection() {
   return (
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
-
       {/* BPM */}
       <div className="mb-4">
         <label className="block font-medium mb-1">BPM</label>
@@ -48,7 +48,6 @@ export default function WriteFormSection() {
         />
         <p className="text-center mt-1">{bpm}</p>
       </div>
-
       {/* Meter */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Meter</label>
@@ -62,7 +61,6 @@ export default function WriteFormSection() {
           ))}
         </select>
       </div>
-
       {/* Genre */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
@@ -81,7 +79,6 @@ export default function WriteFormSection() {
           ))}
         </select>
       </div>
-
       {/* Slow Mode */}
       <div className="mb-4">
         <label className="inline-flex items-center">
@@ -94,11 +91,10 @@ export default function WriteFormSection() {
           Slow down for recording
         </label>
       </div>
-
       {/* MR Type */}
       <div className="mb-4">
         <label className="block font-medium mb-1">MR Type</label>
-        {["metronome", "backing", "upload"].map(type => (
+        {["Metronome", "Auto-Generated Backing Track", "Upload Custom MR"].map(type => (
           <label key={type} className="block">
             <input
               type="radio"
@@ -112,7 +108,6 @@ export default function WriteFormSection() {
           </label>
         ))}
       </div>
-
       {/* Buttons */}
       {!recording ? (
         <div className="mt-6">
@@ -139,7 +134,6 @@ export default function WriteFormSection() {
           </button>
         </div>
       )}
-
       {/* 녹음기 연결 */}
       <AudioRecorderTile ref={recorderRef} bpm={bpm} meter={meter} />
     </div>
