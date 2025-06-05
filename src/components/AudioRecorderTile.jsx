@@ -10,6 +10,11 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
     cancelRecording
   }));
 
+  const playSound = (src) => {
+    const audio = new Audio(src);
+    audio.play();
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -17,12 +22,32 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
       mediaRecorderRef.current.ondataavailable = (e) => {
         console.log("🔴 Recorded data:", e.data);
       };
+
       mediaRecorderRef.current.start();
       setRecording(true);
 
+      const interval = 60000 / bpm;
+      const countSequence = ['one', 'two', 'three', 'four'];
+
+      countSequence.forEach((label, index) => {
+        setTimeout(() => {
+          playSound(`/audio/count_audio/${label}.mp3`);
+        }, index * interval);
+      });
+
+      // 클릭음을 1분간 재생
+      const clickRepeats = Math.floor(60000 / interval);
+      for (let i = 0; i < clickRepeats; i++) {
+        setTimeout(() => {
+          playSound('/audio/count_audio/click.mp3');
+        }, (countSequence.length + i) * interval);
+      }
+
+      // 자동 종료 (녹음 1분)
       setTimeout(() => {
         stopRecording();
-      }, 5000);
+      }, (countSequence.length + clickRepeats) * interval);
+
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
@@ -37,7 +62,7 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop(); // 또는 .stop() 후에 stream 트랙을 끄는 로직도 가능
+      mediaRecorderRef.current.stop();
       setRecording(false);
     }
   };
