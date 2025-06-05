@@ -4,8 +4,7 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
   const mediaRecorderRef = useRef(null);
   const [recording, setRecording] = useState(false);
   const [countNumber, setCountNumber] = useState(null);
-  const clickAudio = useRef(null);
-
+  const recordedChunks = useRef([]);
   useImperativeHandle(ref, () => ({
     startRecording,
     stopRecording,
@@ -25,22 +24,18 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
 
   const playCountAndClick = async () => {
     const interval = (60 / bpm) * 1000;
-
-    // Count 1~4
     for (let i = 1; i <= 4; i++) {
       setCountNumber(i);
       await playSound(`/audio/count_audio/${i}.mp3`);
-      await wait(interval - 100); // 살짝 overlap 방지
+      await wait(interval - 100);
     }
     setCountNumber(null);
 
-    // Click loop (5초간 BPM에 맞게 반복)
     const duration = 5000;
     const totalBeats = Math.floor(duration / interval);
     for (let i = 0; i < totalBeats; i++) {
-      clickAudio.current = new Audio('/audio/click.mp3');
-      clickAudio.current.play();
-      await wait(interval);
+      await playSound(`/audio/click.mp3`);
+      await wait(interval - 100);
     }
   };
 
@@ -48,17 +43,24 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
+      recordedChunks.current = [];
+
       mediaRecorderRef.current.ondataavailable = (e) => {
-        console.log("🔴 Recorded data:", e.data);
+        if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
 
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(recordedChunks.current, { type: 'audio/webm' });
+        console.log("🔴 Recorded data:", blob);
+      };
+
       setRecording(true);
+      await playCountAndClick(); // 카운트+클릭 재생 먼저
+      mediaRecorderRef.current.start(); // 재생 끝난 후 녹음 시작
 
-      // Play count and click sounds (while recording)
-      await playCountAndClick();
-
-      stopRecording();
+      setTimeout(() => {
+        stopRecording();
+      }, 5000);
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
