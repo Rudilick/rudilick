@@ -8,7 +8,6 @@ export default function WriteFormSection() {
   const [slowMode, setSlowMode] = useState(false);
   const [mrType, setMrType] = useState("");
   const [recording, setRecording] = useState(false);
-
   const recorderRef = useRef(null);
 
   const triggerRecording = () => {
@@ -67,12 +66,20 @@ export default function WriteFormSection() {
       {/* Genre */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Genre</label>
-        <input
-          type="text"
+        <select
           value={genre}
           onChange={(e) => setGenre(e.target.value)}
           className="w-full text-black px-3 py-2 rounded"
-        />
+        >
+          <option value="">장르를 선택하세요</option>
+          {[
+            "Rock", "Pop", "Funk", "Jazz", "Blues", "Hip-Hop", "R&B", "Soul", "Gospel",
+            "EDM", "House", "Techno", "Afrobeat", "Reggae", "Samba", "Bossa Nova", "Latin",
+            "Metal", "Punk", "Ballad", "K-Pop", "Trap", "Drum & Bass"
+          ].map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
       </div>
 
       {/* Slow Mode */}
