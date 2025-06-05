@@ -3,6 +3,8 @@ import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, ref) => {
   const mediaRecorderRef = useRef(null);
   const [recording, setRecording] = useState(false);
+  const [countNumber, setCountNumber] = useState(null);
+  const clickAudio = useRef(null);
 
   useImperativeHandle(ref, () => ({
     startRecording,
@@ -10,9 +12,36 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
     cancelRecording
   }));
 
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const playSound = (src) => {
     const audio = new Audio(src);
-    audio.play();
+    return new Promise((resolve, reject) => {
+      audio.onended = resolve;
+      audio.onerror = reject;
+      audio.play();
+    });
+  };
+
+  const playCountAndClick = async () => {
+    const interval = (60 / bpm) * 1000;
+
+    // Count 1~4
+    for (let i = 1; i <= 4; i++) {
+      setCountNumber(i);
+      await playSound(`/audio/count_audio/${i}.mp3`);
+      await wait(interval - 100); // 살짝 overlap 방지
+    }
+    setCountNumber(null);
+
+    // Click loop (5초간 BPM에 맞게 반복)
+    const duration = 5000;
+    const totalBeats = Math.floor(duration / interval);
+    for (let i = 0; i < totalBeats; i++) {
+      clickAudio.current = new Audio('/audio/click.mp3');
+      clickAudio.current.play();
+      await wait(interval);
+    }
   };
 
   const startRecording = async () => {
@@ -26,28 +55,10 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
       mediaRecorderRef.current.start();
       setRecording(true);
 
-      const interval = 60000 / bpm;
-      const countSequence = ['one', 'two', 'three', 'four'];
+      // Play count and click sounds (while recording)
+      await playCountAndClick();
 
-      countSequence.forEach((label, index) => {
-        setTimeout(() => {
-          playSound(`/audio/count_audio/${label}.mp3`);
-        }, index * interval);
-      });
-
-      // 클릭음을 1분간 재생
-      const clickRepeats = Math.floor(60000 / interval);
-      for (let i = 0; i < clickRepeats; i++) {
-        setTimeout(() => {
-          playSound('/audio/count_audio/click.mp3');
-        }, (countSequence.length + i) * interval);
-      }
-
-      // 자동 종료 (녹음 1분)
-      setTimeout(() => {
-        stopRecording();
-      }, (countSequence.length + clickRepeats) * interval);
-
+      stopRecording();
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
@@ -68,9 +79,12 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
   };
 
   return (
-    <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4">
+    <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center">
       <p>🎤 AudioRecorderTile Ready (BPM: {bpm}, Meter: {meter})</p>
-      {recording && <p>Recording...</p>}
+      {recording && <p className="text-green-400">Recording...</p>}
+      {countNumber !== null && (
+        <p className="text-4xl font-bold text-yellow-300 animate-pulse mt-2">{countNumber}</p>
+      )}
     </div>
   );
 });
