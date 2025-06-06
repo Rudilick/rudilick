@@ -48,13 +48,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       const scheduledTime = now + i * interval;
       setTimeout(() => {
         setCountNumber(i + 1);
+        if (i === beatsPerMeasure - 1) {
+          setTimeout(() => setCountNumber(null), interval * 1000 * 0.8);
+        }
       }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
-    // 카운트 직후 숫자 제거
-    setTimeout(() => {
-      setCountNumber(null);
-    }, (beatsPerMeasure * interval + 0.5) * 1000);
     // 클릭음 (첫 박만 high)
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
@@ -63,8 +62,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       const clickUrl = isFirstBeat ? '/audio/click_high.wav' : '/audio/click.wav';
       playBufferedSound(context, clickUrl, scheduledTime);
     }
-    // 클릭음 끝나고도 숫자 제거 보장
-    setTimeout(() => setCountNumber(null), (beatsPerMeasure + totalBeats + 1) * interval * 1000);
     await new Promise((res) =>
       setTimeout(res, (beatsPerMeasure + totalBeats + 1) * interval * 1000)
     );
@@ -92,7 +89,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
         stopRecording();
       }, 60000);
     } catch (err) {
-      alert("❌ 마이크 접근 실패: " + err.message);
+      alert("❌ 마이크 가접 실패: " + err.message);
     }
   };
   const stopRecording = () => {
