@@ -31,17 +31,22 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const bpm = settingsRef.current.slowMode ? 50 : settingsRef.current.bpm;
     const meter = settingsRef.current.meter;
     const interval = 60 / bpm; // seconds
-    const beatsPerMeasure = parseInt(meter.split('/')[0]);
+    const beatsPerMeasure = parseInt(meter.split('/')[0]); // ✅ meter 기반
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+    const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"]; // ✅
     const context = new (window.AudioContext || window.webkitAudioContext)();
-    const now = context.currentTime + 0.5; // 🎯 0.5초 여유
+    const now = context.currentTime + 1.5; // ✅ 충분한 여유 확보
+
     console.log("🎯 BPM:", bpm, "Interval:", (interval * 1000).toFixed(2) + "ms");
 
-    // ⏳ "Are you ready?" 텍스트 표시 후 제거
+    // ✅ 시작 전 메시지 표시 순서
     setReadyText("Are you ready?");
-    setTimeout(() => setReadyText(null), 500); // 0.5초 뒤 제거
+    setTimeout(() => {
+      setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
+    }, 1000); // 1초 뒤 교체
+    setTimeout(() => setReadyText(null), 2000); // 2초 유지 후 제거
 
-    // 카운트 보이스 재생
+    // ✅ 카운트 보이스 재생
     for (let i = 0; i < beatsPerMeasure; i++) {
       const name = countNames[i];
       const scheduledTime = now + i * interval;
@@ -49,7 +54,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
 
-    // 클릭 재생
+    // ✅ 클릭 재생
     const totalBeats = Math.floor(5 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = now + (beatsPerMeasure + i) * interval;
