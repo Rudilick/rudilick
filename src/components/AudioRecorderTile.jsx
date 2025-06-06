@@ -5,15 +5,22 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const [recording, setRecording] = useState(false);
   const [countNumber, setCountNumber] = useState(null);
   const recordedChunks = useRef([]);
+  const settingsRef = useRef({
+    bpm: 120,
+    meter: "4/4",
+    slowMode: false,
+  });
 
   useImperativeHandle(ref, () => ({
-    startRecording,
+    startRecording: (settings) => {
+      settingsRef.current = settings;
+      startRecording();
+    },
     stopRecording,
-    cancelRecording
+    cancelRecording,
   }));
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
   const playSound = (src) => {
     const audio = new Audio(src);
     return new Promise((resolve, reject) => {
@@ -23,8 +30,10 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     });
   };
 
-  const playCountAndClick = async (playBpm, meter) => {
-    const interval = (60 / playBpm) * 1000;
+  const playCountAndClick = async () => {
+    const { bpm, meter, slowMode } = settingsRef.current;
+    const effectiveBpm = slowMode ? 50 : bpm;
+    const interval = (60 / effectiveBpm) * 1000;
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
 
@@ -33,6 +42,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       await playSound(`/audio/${countNames[i]}.mp3`);
       await wait(interval);
     }
+
     setCountNumber(null);
 
     const duration = 5000;
@@ -43,11 +53,8 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     }
   };
 
-  const startRecording = async (settings) => {
+  const startRecording = async () => {
     try {
-      const { bpm, meter, slowMode } = settings;
-      const playBpm = slowMode ? 50 : bpm;
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
@@ -63,8 +70,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
       mediaRecorderRef.current.start();
       setRecording(true);
-
-      await playCountAndClick(playBpm, meter);
+      await playCountAndClick();
 
       setTimeout(() => {
         stopRecording();
