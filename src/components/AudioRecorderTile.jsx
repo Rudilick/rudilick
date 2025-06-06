@@ -2,7 +2,7 @@ import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
-  const settingsRef = useRef(null); // 설정 저장용
+  const settingsRef = useRef(null);
   const [recording, setRecording] = useState(false);
   const [countNumber, setCountNumber] = useState(null);
   const recordedChunks = useRef([]);
@@ -10,7 +10,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   useImperativeHandle(ref, () => ({
     startRecording,
     stopRecording,
-    cancelRecording
+    cancelRecording,
   }));
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,7 +39,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
     setCountNumber(null);
 
-    const duration = 5000; // 5초간 클릭음
+    const duration = 5000;
     const totalBeats = Math.floor(duration / interval);
     for (let i = 0; i < totalBeats; i++) {
       await playSound(`/audio/click.mp3`);
@@ -50,6 +50,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const startRecording = async (settings) => {
     try {
       settingsRef.current = settings;
+      await Promise.resolve(); // 구획: settingsRef 반영 후 보장
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -66,12 +67,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
       mediaRecorderRef.current.start();
       setRecording(true);
+
       await playCountAndClick();
 
       setTimeout(() => {
         stopRecording();
       }, 5000);
-
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
