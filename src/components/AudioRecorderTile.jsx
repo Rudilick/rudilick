@@ -1,4 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const settingsRef = useRef(null);
@@ -37,7 +38,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"];
     const context = new (window.AudioContext || window.webkitAudioContext)();
-    const now = context.currentTime + 2.5;
 
     // 메시지 표시
     setReadyText("Are you ready?");
@@ -46,12 +46,15 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     }, 1000);
     setTimeout(() => setReadyText(null), 3000);
 
+    // 메시지 끝 + interval 여유 후 시작
+    const now = context.currentTime + 2.5 + interval;
+
     // 카운트 보이스
     for (let i = 0; i < beatsPerMeasure; i++) {
       const name = countNames[i];
       const scheduledTime = now + i * interval;
       setTimeout(() => {
-        if (readyText === null) setCountNumber(i + 1);
+        setCountNumber(i + 1);
       }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
@@ -60,7 +63,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = now + (beatsPerMeasure + i) * interval;
-      const isFirstBeat = (i % beatsPerMeasure === 0);
+      const isFirstBeat = i % beatsPerMeasure === 0;
       const clickUrl = isFirstBeat ? '/audio/click_high.wav' : '/audio/click.wav';
       playBufferedSound(context, clickUrl, scheduledTime);
     }
@@ -105,7 +108,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       setCountNumber(null);
       setReadyText(null);
       clearTimeout(timeoutRef.current);
-      clickSourcesRef.current.forEach(source => source.stop());
+      clickSourcesRef.current.forEach((source) => source.stop());
       clickSourcesRef.current = [];
     }
   };
@@ -117,7 +120,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       setCountNumber(null);
       setReadyText(null);
       clearTimeout(timeoutRef.current);
-      clickSourcesRef.current.forEach(source => source.stop());
+      clickSourcesRef.current.forEach((source) => source.stop());
       clickSourcesRef.current = [];
     }
   };
@@ -136,4 +139,5 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     </div>
   );
 });
+
 export default AudioRecorderTile;
