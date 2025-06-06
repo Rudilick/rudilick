@@ -17,11 +17,8 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
   const playSound = (src) => {
     const audio = new Audio(src);
-    return new Promise((resolve, reject) => {
-      audio.onended = resolve;
-      audio.onerror = reject;
-      audio.play();
-    });
+    audio.play();
+    return Promise.resolve(); // 🔹재생 시작만 하고 기다리지 않음
   };
 
   const playCountAndClick = async () => {
@@ -29,31 +26,32 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const meter = settingsRef.current.meter;
     const interval = (60 / bpm) * 1000;
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
+    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 
     console.log("🎯 BPM:", bpm, "Interval:", interval.toFixed(2) + "ms");
 
-    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
-
-    // 카운트
+    // 🔸 카운트 보이스 재생 (간격 유지)
     for (let i = 0; i < beatsPerMeasure; i++) {
       setCountNumber(i + 1);
       await playSound(`/audio/${countNames[i]}.mp3`);
+      await wait(interval);
     }
 
     setCountNumber(null);
 
-    // 클릭음
-    const duration = 5000;
+    // 🔸 클릭음 재생
+    const duration = 5000; // 5초
     const totalBeats = Math.floor(duration / interval);
     for (let i = 0; i < totalBeats; i++) {
       await playSound(`/audio/click.mp3`);
+      await wait(interval);
     }
   };
 
   const startRecording = async (settings) => {
     try {
       settingsRef.current = settings;
-      await Promise.resolve(); // 설정 반영 보장
+      await Promise.resolve(); // 설정 보장
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
@@ -69,6 +67,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
       mediaRecorderRef.current.start();
       setRecording(true);
+
       await playCountAndClick();
 
       setTimeout(() => {
