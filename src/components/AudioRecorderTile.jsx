@@ -14,55 +14,65 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     cancelRecording,
   }));
 
-  const playBufferedSound = async (context, url, scheduledTime) => {
-    const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await context.decodeAudioData(arrayBuffer);
-    const source = context.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(context.destination);
-    source.start(scheduledTime);
-    return new Promise((resolve) => {
-      source.onended = resolve;
-    });
+  const preloadSounds = async (context, beatsPerMeasure, interval) => {
+    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+    const buffers = {};
+
+    for (let i = 0; i < beatsPerMeasure; i++) {
+      const url = `/audio/${countNames[i]}.wav`;
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      buffers[`count${i}`] = await context.decodeAudioData(arrayBuffer);
+    }
+
+    const clickResponse = await fetch('/audio/click.wav');
+    const clickBuffer = await clickResponse.arrayBuffer();
+    buffers.click = await context.decodeAudioData(clickBuffer);
+
+    return buffers;
   };
 
   const playCountAndClick = async () => {
     const bpm = settingsRef.current.slowMode ? 50 : settingsRef.current.bpm;
     const meter = settingsRef.current.meter;
-    const interval = 60 / bpm; // seconds
-    const beatsPerMeasure = parseInt(meter.split('/')[0]); // ✅ meter 기반
-    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
-    const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"]; // ✅
+    const interval = 60 / bpm;
+    const beatsPerMeasure = parseInt(meter.split('/')[0]);
+    const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"];
     const context = new (window.AudioContext || window.webkitAudioContext)();
-    const now = context.currentTime + 1.5; // ✅ 충분한 여유 확보
 
-    console.log("🎯 BPM:", bpm, "Interval:", (interval * 1000).toFixed(2) + "ms");
+    // ✅ preload
+    const buffers = await preloadSounds(context, beatsPerMeasure, interval);
 
-    // ✅ 시작 전 메시지 표시 순서
+    // ✅ 메시지 표시
     setReadyText("Are you ready?");
-    setTimeout(() => {
-      setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
-    }, 1000); // 1초 뒤 교체
-    setTimeout(() => setReadyText(null), 2000); // 2초 유지 후 제거
+    await new Promise(res => setTimeout(res, 1500));
+    setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
+    await new Promise(res => setTimeout(res, 2500));
+    setReadyText(null);
 
-    // ✅ 카운트 보이스 재생
+    // ✅ 예약 재생 시작
+    const now = context.currentTime + 0.1;
+
     for (let i = 0; i < beatsPerMeasure; i++) {
-      const name = countNames[i];
       const scheduledTime = now + i * interval;
+      const source = context.createBufferSource();
+      source.buffer = buffers[`count${i}`];
+      source.connect(context.destination);
+      source.start(scheduledTime);
       setTimeout(() => setCountNumber(i + 1), (scheduledTime - context.currentTime) * 1000);
-      playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
 
-    // ✅ 클릭 재생
     const totalBeats = Math.floor(5 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = now + (beatsPerMeasure + i) * interval;
-      playBufferedSound(context, `/audio/click.wav`, scheduledTime);
+      const source = context.createBufferSource();
+      source.buffer = buffers.click;
+      source.connect(context.destination);
+      source.start(scheduledTime);
     }
 
     setTimeout(() => setCountNumber(null), beatsPerMeasure * interval * 1000);
-    await new Promise((res) =>
+    await new Promise(res =>
       setTimeout(res, (beatsPerMeasure + totalBeats) * interval * 1000)
     );
   };
