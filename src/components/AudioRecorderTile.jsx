@@ -7,6 +7,9 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const [countNumber, setCountNumber] = useState(null);
   const [readyText, setReadyText] = useState(null);
   const recordedChunks = useRef([]);
+  const clickIntervalIds = useRef([]);
+  const audioContextRef = useRef(null);
+  const recordingTimeoutRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     startRecording,
@@ -14,22 +17,17 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     cancelRecording,
   }));
 
-  const preloadSounds = async (context, beatsPerMeasure, interval) => {
-    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
-    const buffers = {};
-
-    for (let i = 0; i < beatsPerMeasure; i++) {
-      const url = `/audio/${countNames[i]}.wav`;
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      buffers[`count${i}`] = await context.decodeAudioData(arrayBuffer);
-    }
-
-    const clickResponse = await fetch('/audio/click.wav');
-    const clickBuffer = await clickResponse.arrayBuffer();
-    buffers.click = await context.decodeAudioData(clickBuffer);
-
-    return buffers;
+  const playBufferedSound = async (context, url, scheduledTime) => {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await context.decodeAudioData(arrayBuffer);
+    const source = context.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(context.destination);
+    source.start(scheduledTime);
+    return new Promise((resolve) => {
+      source.onended = resolve;
+    });
   };
 
   const playCountAndClick = async () => {
@@ -37,50 +35,39 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const meter = settingsRef.current.meter;
     const interval = 60 / bpm;
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
+    const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"];
+
     const context = new (window.AudioContext || window.webkitAudioContext)();
+    audioContextRef.current = context;
 
-    // ✅ preload
-    const buffers = await preloadSounds(context, beatsPerMeasure, interval);
-
-    // ✅ 메시지 표시
+    const now = context.currentTime + 2.5; // 2.5초 여유 확보
     setReadyText("Are you ready?");
-    await new Promise(res => setTimeout(res, 1500));
-    setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
-    await new Promise(res => setTimeout(res, 2500));
-    setReadyText(null);
-
-    // ✅ 예약 재생 시작
-    const now = context.currentTime + 0.1;
+    setTimeout(() => {
+      setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
+    }, 1000);
+    setTimeout(() => setReadyText(null), 3000);
 
     for (let i = 0; i < beatsPerMeasure; i++) {
+      const name = countNames[i];
       const scheduledTime = now + i * interval;
-      const source = context.createBufferSource();
-      source.buffer = buffers[`count${i}`];
-      source.connect(context.destination);
-      source.start(scheduledTime);
       setTimeout(() => setCountNumber(i + 1), (scheduledTime - context.currentTime) * 1000);
+      playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
 
-    const totalBeats = Math.floor(5 / interval);
+    const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = now + (beatsPerMeasure + i) * interval;
-      const source = context.createBufferSource();
-      source.buffer = buffers.click;
-      source.connect(context.destination);
-      source.start(scheduledTime);
+      playBufferedSound(context, `/audio/click.wav`, scheduledTime);
     }
 
     setTimeout(() => setCountNumber(null), beatsPerMeasure * interval * 1000);
-    await new Promise(res =>
-      setTimeout(res, (beatsPerMeasure + totalBeats) * interval * 1000)
-    );
   };
 
   const startRecording = async (settings) => {
+    if (recording) return;
+    settingsRef.current = settings;
     try {
-      settingsRef.current = settings;
-      await Promise.resolve();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
@@ -90,30 +77,74 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(recordedChunks.current, { type: 'audio/webm' });
         console.log("🔴 Recorded data:", blob);
+        sendToServer(blob);
       };
+
       mediaRecorderRef.current.start();
       setRecording(true);
       await playCountAndClick();
-      setTimeout(() => {
+
+      // 60초 뒤 자동 종료
+      recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 5000);
+      }, 60000);
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
+    if (!recording) return;
+    clearTimeout(recordingTimeoutRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
-      setRecording(false);
     }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+    setRecording(false);
   };
 
   const cancelRecording = () => {
-    if (mediaRecorderRef.current && recording) {
+    if (!recording) return;
+    clearTimeout(recordingTimeoutRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
-      setRecording(false);
     }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+    recordedChunks.current = [];
+    setRecording(false);
+    console.log("⛔ 녹음 취소, 전송 안함");
+  };
+
+  const sendToServer = (blob) => {
+    const file = new File([blob], 'recorded.wav', { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/upload-wav/", {
+      method: "POST",
+      body: formData,
+    })
+      .then(res => res.json())
+      .then(data => {
+        const filename = data.filename;
+        return fetch("/transcribe-beat/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename }),
+        });
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("✅ 전사 결과:", data);
+        // props.onResult(data); // 필요시 결과 전달
+      })
+      .catch(err => {
+        console.error("❌ 전송 오류:", err);
+      });
   };
 
   return (
