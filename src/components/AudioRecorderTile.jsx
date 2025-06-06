@@ -1,5 +1,4 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const settingsRef = useRef(null);
@@ -9,13 +8,11 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const [readyText, setReadyText] = useState(null);
   const recordedChunks = useRef([]);
   const timeoutRef = useRef(null);
-
   useImperativeHandle(ref, () => ({
     startRecording,
     stopRecording,
     cancelRecording,
   }));
-
   const playBufferedSound = async (context, url, scheduledTime) => {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
@@ -29,7 +26,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       source.onended = resolve;
     });
   };
-
   const playCountAndClick = async () => {
     const bpm = settingsRef.current.slowMode ? 50 : settingsRef.current.bpm;
     const meter = settingsRef.current.meter;
@@ -38,17 +34,14 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"];
     const context = new (window.AudioContext || window.webkitAudioContext)();
-
     // 메시지 표시
     setReadyText("Are you ready?");
     setTimeout(() => {
       setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
     }, 1000);
     setTimeout(() => setReadyText(null), 3000);
-
     // 메시지 끝 + interval 여유 후 시작
     const now = context.currentTime + 2.5 + interval;
-
     // 카운트 보이스
     for (let i = 0; i < beatsPerMeasure; i++) {
       const name = countNames[i];
@@ -58,7 +51,10 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
-
+    // 카운트 직후 숫자 제거
+    setTimeout(() => {
+      setCountNumber(null);
+    }, (beatsPerMeasure * interval + 0.5) * 1000);
     // 클릭음 (첫 박만 high)
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
@@ -67,14 +63,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       const clickUrl = isFirstBeat ? '/audio/click_high.wav' : '/audio/click.wav';
       playBufferedSound(context, clickUrl, scheduledTime);
     }
-
-    // 숫자 표시 제거 (여유 포함)
+    // 클릭음 끝나고도 숫자 제거 보장
     setTimeout(() => setCountNumber(null), (beatsPerMeasure + totalBeats + 1) * interval * 1000);
     await new Promise((res) =>
       setTimeout(res, (beatsPerMeasure + totalBeats + 1) * interval * 1000)
     );
   };
-
   const startRecording = async (settings) => {
     if (recording) return;
     try {
@@ -101,7 +95,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
   };
-
   const stopRecording = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
@@ -113,7 +106,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       clickSourcesRef.current = [];
     }
   };
-
   const cancelRecording = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
@@ -125,7 +117,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       clickSourcesRef.current = [];
     }
   };
-
   return (
     <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center h-28 flex items-center justify-center">
       {readyText && (
@@ -140,5 +131,4 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     </div>
   );
 });
-
 export default AudioRecorderTile;
