@@ -130,14 +130,7 @@ export default function WriteFormSection() {
         </div>
       )}
       {/* 녹음기 연결 */}
-      <AudioRecorderTile
-        ref={recorderRef}
-        bpm={bpm}
-        meter={meter}
-        genre={genre}
-        slowMode={slowMode}
-        mrType={mrType}
-      />
+      <AudioRecorderTile ref={recorderRef} />
     </div>
   );
 }
