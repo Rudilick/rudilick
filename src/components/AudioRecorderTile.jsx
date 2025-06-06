@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
-const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, ref) => {
+const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const [recording, setRecording] = useState(false);
   const [countNumber, setCountNumber] = useState(null);
@@ -23,8 +23,8 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
     });
   };
 
-  const playCountAndClick = async (effectiveBpm) => {
-    const interval = (60 / effectiveBpm) * 1000;
+  const playCountAndClick = async (playBpm, meter) => {
+    const interval = (60 / playBpm) * 1000;
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
 
@@ -33,21 +33,20 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
       await playSound(`/audio/${countNames[i]}.mp3`);
       await wait(interval);
     }
-
     setCountNumber(null);
 
     const duration = 5000;
     const totalBeats = Math.floor(duration / interval);
-
     for (let i = 0; i < totalBeats; i++) {
       await playSound(`/audio/click.mp3`);
       await wait(interval);
     }
   };
 
-  const startRecording = async () => {
+  const startRecording = async (settings) => {
     try {
-      const effectiveBpm = slowMode ? 50 : bpm;
+      const { bpm, meter, slowMode } = settings;
+      const playBpm = slowMode ? 50 : bpm;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -64,7 +63,9 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
 
       mediaRecorderRef.current.start();
       setRecording(true);
-      await playCountAndClick(effectiveBpm);
+
+      await playCountAndClick(playBpm, meter);
+
       setTimeout(() => {
         stopRecording();
       }, 5000);
@@ -89,7 +90,7 @@ const AudioRecorderTile = forwardRef(({ bpm, meter, genre, slowMode, mrType }, r
 
   return (
     <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center">
-      <p>🎤 AudioRecorderTile Ready (BPM: {bpm}, Meter: {meter})</p>
+      <p>🎤 AudioRecorderTile Ready</p>
       {recording && <p className="text-green-400">Recording...</p>}
       {countNumber !== null && (
         <p className="text-4xl font-bold text-yellow-300 animate-pulse mt-2">{countNumber}</p>
