@@ -68,9 +68,10 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       playBufferedSound(context, clickUrl, scheduledTime);
     }
 
-    setTimeout(() => setCountNumber(null), (beatsPerMeasure + totalBeats) * interval * 1000);
+    // 숫자 표시 제거 (여유 포함)
+    setTimeout(() => setCountNumber(null), (beatsPerMeasure + totalBeats + 1) * interval * 1000);
     await new Promise((res) =>
-      setTimeout(res, (beatsPerMeasure + totalBeats) * interval * 1000)
+      setTimeout(res, (beatsPerMeasure + totalBeats + 1) * interval * 1000)
     );
   };
 
@@ -134,7 +135,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
         <p className="text-4xl font-bold text-yellow-300 animate-pulse">{countNumber}</p>
       )}
       {recording && readyText === null && countNumber === null && (
-        <p className="text-4xl font-bold text-green-400 animate-pulse">Recording...</p>
+        <p className="text-4xl font-bold text-green-400 animate-pulse">Now Recording...</p>
       )}
     </div>
   );
