@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import AudioRecorderTile from './AudioRecorderTile';
-
 export default function WriteFormSection() {
   const [bpm, setBpm] = useState(120);
   const [meter, setMeter] = useState("4/4");
@@ -9,7 +8,6 @@ export default function WriteFormSection() {
   const [mrType, setMrType] = useState("");
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef(null);
-
   const triggerRecording = () => {
     if (recorderRef.current) {
       const settings = { bpm, meter, genre, mrType, slowMode };
@@ -17,21 +15,18 @@ export default function WriteFormSection() {
       setRecording(true);
     }
   };
-
   const stopRecording = () => {
     if (recorderRef.current) {
       recorderRef.current.stopRecording();
       setRecording(false);
     }
   };
-
   const cancelRecording = () => {
     if (recorderRef.current) {
       recorderRef.current.cancelRecording();
       setRecording(false);
     }
   };
-
   return (
     <div className="w-full max-w-xl mx-auto mt-12 px-4 py-6 rounded-2xl shadow-lg bg-gray-900 text-white border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-center">Generate Drum Sheet Music</h2>
@@ -135,7 +130,14 @@ export default function WriteFormSection() {
         </div>
       )}
       {/* 녹음기 연결 */}
-      <AudioRecorderTile ref={recorderRef} bpm={bpm} meter={meter} />
+      <AudioRecorderTile
+        ref={recorderRef}
+        bpm={bpm}
+        meter={meter}
+        genre={genre}
+        slowMode={slowMode}
+        mrType={mrType}
+      />
     </div>
   );
 }
