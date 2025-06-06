@@ -1,15 +1,13 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const settingsRef = useRef(null);
+  const clickSourcesRef = useRef([]);
   const [recording, setRecording] = useState(false);
   const [countNumber, setCountNumber] = useState(null);
   const [readyText, setReadyText] = useState(null);
   const recordedChunks = useRef([]);
-  const clickIntervalIds = useRef([]);
-  const audioContextRef = useRef(null);
-  const recordingTimeoutRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     startRecording,
@@ -25,6 +23,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     source.buffer = audioBuffer;
     source.connect(context.destination);
     source.start(scheduledTime);
+    clickSourcesRef.current.push(source);
     return new Promise((resolve) => {
       source.onended = resolve;
     });
@@ -37,37 +36,46 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
     const hypeMessages = ["Let's groove!", "Let's go!", "Here we go!", "Time to hit!", "Drum on!"];
-
     const context = new (window.AudioContext || window.webkitAudioContext)();
-    audioContextRef.current = context;
+    const now = context.currentTime + 2.5;
 
-    const now = context.currentTime + 2.5; // 2.5초 여유 확보
+    // 메시지 표시
     setReadyText("Are you ready?");
     setTimeout(() => {
       setReadyText(hypeMessages[Math.floor(Math.random() * hypeMessages.length)]);
     }, 1000);
     setTimeout(() => setReadyText(null), 3000);
 
+    // 카운트 보이스
     for (let i = 0; i < beatsPerMeasure; i++) {
       const name = countNames[i];
       const scheduledTime = now + i * interval;
-      setTimeout(() => setCountNumber(i + 1), (scheduledTime - context.currentTime) * 1000);
+      setTimeout(() => {
+        if (readyText === null) setCountNumber(i + 1);
+      }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
 
+    // 클릭음 (첫 박만 high)
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = now + (beatsPerMeasure + i) * interval;
-      playBufferedSound(context, `/audio/click.wav`, scheduledTime);
+      const isFirstBeat = (i % beatsPerMeasure === 0);
+      const clickUrl = isFirstBeat ? '/audio/click_high.wav' : '/audio/click.wav';
+      playBufferedSound(context, clickUrl, scheduledTime);
     }
 
-    setTimeout(() => setCountNumber(null), beatsPerMeasure * interval * 1000);
+    setTimeout(() => setCountNumber(null), (beatsPerMeasure + totalBeats) * interval * 1000);
+    await new Promise((res) =>
+      setTimeout(res, (beatsPerMeasure + totalBeats) * interval * 1000)
+    );
   };
 
   const startRecording = async (settings) => {
     if (recording) return;
-    settingsRef.current = settings;
     try {
+      settingsRef.current = settings;
+      await Promise.resolve();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
@@ -77,15 +85,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(recordedChunks.current, { type: 'audio/webm' });
         console.log("🔴 Recorded data:", blob);
-        sendToServer(blob);
+        // 이후 전사 요청 등 수행
       };
-
       mediaRecorderRef.current.start();
       setRecording(true);
       await playCountAndClick();
-
-      // 60초 뒤 자동 종료
-      recordingTimeoutRef.current = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         stopRecording();
       }, 60000);
     } catch (err) {
@@ -94,69 +99,41 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   };
 
   const stopRecording = () => {
-    if (!recording) return;
-    clearTimeout(recordingTimeoutRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
+      setRecording(false);
+      setCountNumber(null);
+      setReadyText(null);
+      clearTimeout(timeoutRef.current);
+      clickSourcesRef.current.forEach(source => source.stop());
+      clickSourcesRef.current = [];
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    setRecording(false);
   };
 
   const cancelRecording = () => {
-    if (!recording) return;
-    clearTimeout(recordingTimeoutRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
+      setRecording(false);
+      setCountNumber(null);
+      setReadyText(null);
+      clearTimeout(timeoutRef.current);
+      clickSourcesRef.current.forEach(source => source.stop());
+      clickSourcesRef.current = [];
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    recordedChunks.current = [];
-    setRecording(false);
-    console.log("⛔ 녹음 취소, 전송 안함");
-  };
-
-  const sendToServer = (blob) => {
-    const file = new File([blob], 'recorded.wav', { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append("file", file);
-
-    fetch("/upload-wav/", {
-      method: "POST",
-      body: formData,
-    })
-      .then(res => res.json())
-      .then(data => {
-        const filename = data.filename;
-        return fetch("/transcribe-beat/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename }),
-        });
-      })
-      .then(res => res.json())
-      .then(data => {
-        console.log("✅ 전사 결과:", data);
-        // props.onResult(data); // 필요시 결과 전달
-      })
-      .catch(err => {
-        console.error("❌ 전송 오류:", err);
-      });
   };
 
   return (
-    <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center">
-      <p>🎤 AudioRecorderTile Ready</p>
-      {recording && <p className="text-green-400">Recording...</p>}
-      {readyText && <p className="text-2xl text-blue-400 font-semibold mt-2">{readyText}</p>}
-      {countNumber !== null && (
-        <p className="text-4xl font-bold text-yellow-300 animate-pulse mt-2">{countNumber}</p>
+    <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center h-28 flex items-center justify-center">
+      {readyText && (
+        <p className="text-4xl font-bold text-blue-400 animate-pulse">{readyText}</p>
+      )}
+      {countNumber !== null && readyText === null && (
+        <p className="text-4xl font-bold text-yellow-300 animate-pulse">{countNumber}</p>
+      )}
+      {recording && readyText === null && countNumber === null && (
+        <p className="text-4xl font-bold text-green-400 animate-pulse">Recording...</p>
       )}
     </div>
   );
 });
-
 export default AudioRecorderTile;
