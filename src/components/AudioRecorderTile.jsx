@@ -13,14 +13,15 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     cancelRecording,
   }));
 
-  const playBufferedSound = async (context, url) => {
+  // ✅ 수정: scheduledTime 받도록 변경
+  const playBufferedSound = async (context, url, scheduledTime) => {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await context.decodeAudioData(arrayBuffer);
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(context.destination);
-    source.start();
+    source.start(scheduledTime); // ✅ 정확한 재생 타이밍
     return new Promise((resolve) => {
       source.onended = resolve;
     });
@@ -29,10 +30,9 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const playCountAndClick = async () => {
     const bpm = settingsRef.current.slowMode ? 50 : settingsRef.current.bpm;
     const meter = settingsRef.current.meter;
-    const interval = (60 / bpm); // seconds
+    const interval = 60 / bpm; // seconds
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
-
     const context = new (window.AudioContext || window.webkitAudioContext)();
     const now = context.currentTime;
 
@@ -43,7 +43,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       const name = countNames[i];
       const scheduledTime = now + i * interval;
       setTimeout(() => setCountNumber(i + 1), (scheduledTime - context.currentTime) * 1000);
-      playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
+      playBufferedSound(context, `/audio/${name}.wav`, scheduledTime); // ✅ 수정된 함수 사용
     }
 
     // 클릭 재생
@@ -54,7 +54,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     }
 
     // 숫자표시 초기화
-    setTimeout(() => setCountNumber(null), (beatsPerMeasure * interval * 1000));
+    setTimeout(() => setCountNumber(null), beatsPerMeasure * interval * 1000);
     await new Promise((res) => setTimeout(res, (beatsPerMeasure + totalBeats) * interval * 1000));
   };
 
