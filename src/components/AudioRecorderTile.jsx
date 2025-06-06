@@ -1,4 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const settingsRef = useRef(null);
@@ -11,8 +12,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     stopRecording,
     cancelRecording,
   }));
-
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const playSound = (src) => {
     return new Promise((resolve, reject) => {
@@ -29,13 +28,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const interval = (60 / bpm) * 1000;
     const beatsPerMeasure = parseInt(meter.split('/')[0]);
     const countNames = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+
     console.log("🎯 BPM:", bpm, "Interval:", interval.toFixed(2) + "ms");
 
-    // 하나의 시퀀스처럼 재생
     for (let i = 0; i < beatsPerMeasure; i++) {
       setCountNumber(i + 1);
       await playSound('/audio/' + countNames[i] + '.wav');
-      await wait(interval);
     }
     setCountNumber(null);
 
@@ -43,17 +41,18 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     const totalBeats = Math.floor(duration / interval);
     for (let i = 0; i < totalBeats; i++) {
       await playSound('/audio/click.wav');
-      await wait(interval);
     }
   };
 
   const startRecording = async (settings) => {
     try {
       settingsRef.current = settings;
-      await Promise.resolve(); // 설정 보장
+      await Promise.resolve();
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
+
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
@@ -61,12 +60,16 @@ const AudioRecorderTile = forwardRef((props, ref) => {
         const blob = new Blob(recordedChunks.current, { type: 'audio/webm' });
         console.log("🔴 Recorded data:", blob);
       };
+
       mediaRecorderRef.current.start();
       setRecording(true);
+
       await playCountAndClick();
+
       setTimeout(() => {
         stopRecording();
       }, 5000);
+
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
@@ -96,4 +99,5 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     </div>
   );
 });
+
 export default AudioRecorderTile;
