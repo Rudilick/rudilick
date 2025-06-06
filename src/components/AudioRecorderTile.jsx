@@ -16,9 +16,12 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const playSound = (src) => {
-    const audio = new Audio(src);
-    audio.play();
-    return Promise.resolve(); // 🔹재생 시작만 하고 기다리지 않음
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(src);
+      audio.onended = resolve;
+      audio.onerror = reject;
+      audio.play();
+    });
   };
 
   const playCountAndClick = async () => {
@@ -30,20 +33,19 @@ const AudioRecorderTile = forwardRef((props, ref) => {
 
     console.log("🎯 BPM:", bpm, "Interval:", interval.toFixed(2) + "ms");
 
-    // 🔸 카운트 보이스 재생 (간격 유지)
+    // 하나의 시퀀스처럼 재생
     for (let i = 0; i < beatsPerMeasure; i++) {
       setCountNumber(i + 1);
-      await playSound(`/audio/${countNames[i]}.mp3`);
+      await playSound(`/audio/count_audio/${countNames[i]}.wav`);
       await wait(interval);
     }
 
     setCountNumber(null);
 
-    // 🔸 클릭음 재생
-    const duration = 5000; // 5초
+    const duration = 5000;
     const totalBeats = Math.floor(duration / interval);
     for (let i = 0; i < totalBeats; i++) {
-      await playSound(`/audio/click.mp3`);
+      await playSound(`/audio/click.wav`);
       await wait(interval);
     }
   };
@@ -52,6 +54,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     try {
       settingsRef.current = settings;
       await Promise.resolve(); // 설정 보장
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       recordedChunks.current = [];
@@ -73,6 +76,7 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       setTimeout(() => {
         stopRecording();
       }, 5000);
+
     } catch (err) {
       alert("❌ 마이크 접근 실패: " + err.message);
     }
