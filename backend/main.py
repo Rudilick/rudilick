@@ -95,4 +95,4 @@ async def transcribe_beat(request: FileRequest):
         return transcribe_with_beat_quantization(local_path)
 
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e)}   #ddd
