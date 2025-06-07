@@ -14,7 +14,11 @@ app = FastAPI()
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.rudilick.com", "https://rudilick.com"],
+    allow_origins=[
+        "https://www.rudilick.com",
+        "https://rudilick.com",
+        "https://rudilick-backend.onrender.com"  # ✅ 추가됨
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,16 +40,20 @@ class FileRequest(BaseModel):
 # 업로드
 @app.post("/upload-wav/")
 async def upload_wav(file: UploadFile = File(...)):
-    print("📥 파일 업로드 요청 수신됨")
-    blob_name = file.filename  # ⬅️ 파일명을 그대로 사용!
-    blob = bucket.blob(blob_name)
-    contents = await file.read()
-    blob.upload_from_string(contents, content_type="audio/wav")
-    return {
-        "message": "파일이 GCS에 업로드되었습니다.",
-        "filename": blob_name,
-        "url": f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_name}"
-    }
+    try:
+        print("📥 파일 업로드 요청 수신됨")
+        blob_name = file.filename  # ⬅️ 파일명을 그대로 사용!
+        blob = bucket.blob(blob_name)
+        contents = await file.read()
+        blob.upload_from_string(contents, content_type="audio/wav")
+        return {
+            "message": "파일이 GCS에 업로드되었습니다.",
+            "filename": blob_name,
+            "url": f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_name}"
+        }
+    except Exception as e:
+        print("❌ 업로드 중 에러:", e)
+        return {"error": str(e)}
 
 # 전사
 @app.post("/transcribe-beat/")
