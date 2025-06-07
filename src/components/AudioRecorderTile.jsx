@@ -1,5 +1,4 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-
 const AudioRecorderTile = forwardRef((props, ref) => {
   const mediaRecorderRef = useRef(null);
   const settingsRef = useRef(null);
@@ -9,13 +8,11 @@ const AudioRecorderTile = forwardRef((props, ref) => {
   const [readyText, setReadyText] = useState(null);
   const recordedChunks = useRef([]);
   const timeoutRef = useRef(null);
-
   useImperativeHandle(ref, () => ({
     startRecording,
     stopRecording,
     cancelRecording,
   }));
-
   const playBufferedSound = async (context, url, scheduledTime) => {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
@@ -29,7 +26,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       source.onended = resolve;
     });
   };
-
   const playCountAndClick = async () => {
     const bpm = settingsRef.current.slowMode ? 50 : settingsRef.current.bpm;
     const meter = settingsRef.current.meter;
@@ -55,7 +51,10 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
-    const countEndTime = now + beatsPerMeasure * interval;
+
+    // ✅ [수정된 부분] 클릭음 시작 시점을 0.05초 늦춤
+    const countEndTime = now + beatsPerMeasure * interval + 0.05;
+
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = countEndTime + i * interval;
@@ -67,7 +66,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       setTimeout(res, (beatsPerMeasure + totalBeats + 1) * interval * 1000)
     );
   };
-
   const startRecording = async (settings) => {
     if (recording) return;
     try {
@@ -93,7 +91,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       alert("❌ 마이크 가접 실패: " + err.message);
     }
   };
-
   const stopRecording = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
@@ -105,7 +102,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       clickSourcesRef.current = [];
     }
   };
-
   const cancelRecording = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
@@ -117,7 +113,6 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       clickSourcesRef.current = [];
     }
   };
-
   return (
     <div className="p-4 bg-gray-800 rounded-xl shadow-lg text-white mt-4 text-center h-28 flex items-center justify-center">
       {readyText && (
@@ -132,5 +127,4 @@ const AudioRecorderTile = forwardRef((props, ref) => {
     </div>
   );
 });
-
 export default AudioRecorderTile;
