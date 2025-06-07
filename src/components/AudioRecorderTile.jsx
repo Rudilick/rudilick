@@ -51,10 +51,8 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       }, (scheduledTime - context.currentTime) * 1000);
       playBufferedSound(context, `/audio/${name}.wav`, scheduledTime);
     }
-
     // ✅ [수정된 부분] 클릭음 시작 시점을 0.05초 늦춤
     const countEndTime = now + beatsPerMeasure * interval + 0.05;
-
     const totalBeats = Math.floor(60 / interval);
     for (let i = 0; i < totalBeats; i++) {
       const scheduledTime = countEndTime + i * interval;
@@ -77,9 +75,31 @@ const AudioRecorderTile = forwardRef((props, ref) => {
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(recordedChunks.current, { type: 'audio/webm' });
         console.log("🔴 Recorded data:", blob);
+
+        // ✅ 추가: 업로드 → 전사 요청 → JSON 출력
+        try {
+          const formData = new FormData();
+          formData.append("file", blob, "recording.wav");
+          const uploadRes = await fetch("https://rudilick-backend.onrender.com/upload-wav/", {
+            method: "POST",
+            body: formData,
+          });
+          const uploadJson = await uploadRes.json();
+          console.log("📤 업로드 응답:", uploadJson);
+
+          const transcribeRes = await fetch("https://rudilick-backend.onrender.com/transcribe-beat/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: uploadJson.filename }),
+          });
+          const jsonResult = await transcribeRes.json();
+          console.log("🎵 전사 결과:", jsonResult);
+        } catch (error) {
+          console.error("⚠️ 전사 처리 중 오류:", error);
+        }
       };
       mediaRecorderRef.current.start();
       setRecording(true);
