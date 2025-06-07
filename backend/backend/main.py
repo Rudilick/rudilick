@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import storage
 from google.oauth2 import service_account
@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import json
 import librosa
+import shutil
 from typing import List
 
 app = FastAPI()
@@ -23,10 +24,8 @@ app.add_middleware(
 # GCS 설정
 GCS_BUCKET_NAME = "rudilick_audio"
 GCS_KEY_PATH = "gcs_key.json"
-
 with open(GCS_KEY_PATH, "r") as f:
     credentials_info = json.load(f)
-
 credentials = service_account.Credentials.from_service_account_info(credentials_info)
 client = storage.Client(credentials=credentials)
 bucket = client.bucket(GCS_BUCKET_NAME)
@@ -88,5 +87,35 @@ async def transcribe_beat(request: FileRequest):
             }
 
         return transcribe_with_beat_quantization(local_path)
+
+    except Exception as e:
+        return {"error": str(e)}
+
+# ✅ 설문 응답 저장 API
+@app.post("/survey-feedback/")
+async def survey_feedback(
+    filename: str = Body(...),
+    json_data: dict = Body(...),
+    feedback: str = Body(...)  # "perfect" or "not_perfect"
+):
+    try:
+        if feedback == "perfect":
+            # 디렉토리 생성
+            os.makedirs("confirmed_learn_dataset/confirmed_json", exist_ok=True)
+            os.makedirs("confirmed_learn_dataset/confirmed_wav", exist_ok=True)
+
+            # JSON 저장
+            json_path = f"confirmed_learn_dataset/confirmed_json/{filename}.json"
+            with open(json_path, "w") as f:
+                json.dump(json_data, f, indent=2)
+
+            # WAV 저장
+            blob = bucket.blob(filename)
+            wav_path = f"confirmed_learn_dataset/confirmed_wav/{filename}"
+            blob.download_to_filename(wav_path)
+
+            return {"message": "✅ 설문 결과 저장 완료 (학습용 포함)"}
+        else:
+            return {"message": "⚠️ 설문 결과: 학습 데이터로 제외됨"}
     except Exception as e:
         return {"error": str(e)}
