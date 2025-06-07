@@ -22,11 +22,9 @@ app.add_middleware(
 
 # GCS 설정
 GCS_BUCKET_NAME = "rudilick_audio"
-GCS_KEY_PATH = "gcs_key.json"
-
+GCS_KEY_PATH = "centered-sol-460814-n5-31dc31e91134.json"  # 🔧 키 파일명 변경됨
 with open(GCS_KEY_PATH, "r") as f:
     credentials_info = json.load(f)
-
 credentials = service_account.Credentials.from_service_account_info(credentials_info)
 client = storage.Client(credentials=credentials)
 bucket = client.bucket(GCS_BUCKET_NAME)
@@ -87,5 +85,6 @@ async def transcribe_beat(request: FileRequest):
             }
 
         return transcribe_with_beat_quantization(local_path)
+
     except Exception as e:
         return {"error": str(e)}
